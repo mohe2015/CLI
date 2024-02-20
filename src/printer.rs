@@ -52,7 +52,7 @@ pub fn greetings(render_version: &str, generator_version: &str) {
   let l7_left = make_clickable_link("Source", "https://github.com/Gamer92000/LectureCut/") + " - Made with ❤️ by " + &make_clickable_link("Gamer92000", "https://github.com/Gamer92000");
   let l7_right = format!("Generator: {} | Render: {}", style(render_version).yellow(), style(generator_version).yellow());
   let l7_right_width = measure_text_width(l7_right.as_str());
-  let l7 = l7_left + &" ".repeat(50 - l7_right_width) + &l7_right;
+  let l7 = l7_left + &" ".repeat(49 - l7_right_width) + &l7_right;
 
   // center text
   let term_width = term.size().1;

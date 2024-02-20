@@ -15,22 +15,26 @@ use self::libloading::Symbol;
 
 use self::libloading::Library;
 
+#[repr(C)]
 pub struct Cut {
   pub start: c_double,
   pub end: c_double,
 }
 
+#[repr(C)]
 pub struct CutList {
   pub length: c_long,
   pub cuts: *const Cut,
 }
 
+#[repr(C)]
 #[derive(Clone)]
 pub struct GeneratorStats {
   pub len_pre_cut: c_double,
   pub len_post_cut: c_double,
 }
 
+#[repr(C)]
 pub struct GeneratorResult {
   pub cuts: CutList,
   pub stats: GeneratorStats,
@@ -40,7 +44,6 @@ type Callback = unsafe extern fn(*const c_char, c_double) -> ();
 
 type InitFunc<'a> = Symbol<'a, unsafe extern fn() -> ()>;
 type VersionFunc<'a> = Symbol<'a, unsafe extern fn() -> *const c_char>;
-type PrepareFunc<'a> = Symbol<'a, unsafe extern fn(*const c_char, Callback) -> *const c_char>;
 type RenderFunc<'a> = Symbol<'a, unsafe extern fn(*const c_char, *const c_char, CutList, c_int, Callback) -> c_void>;
 type GenerateFunc<'a> = Symbol<'a, unsafe extern fn(*const c_char, c_int, bool, Callback) -> GeneratorResult>;
 
@@ -72,19 +75,11 @@ pub fn load_render() -> Library {
   lib
 }
 
-pub fn render_prepare(lib: &Library, input: &str, progress: Callback) -> String {
-  let prepare: PrepareFunc = unsafe { lib.get(b"prepare").unwrap() };
-  let input = CString::new(input).unwrap();
-  let output = unsafe { prepare(input.as_ptr(), progress) };
-  let output = unsafe { CStr::from_ptr(output) };
-  output.to_str().unwrap().to_string()
-}
-
-pub fn render_render(lib: &Library, process: String, output: &str, cuts: CutList, reencode: c_int, progress: Callback) {
+pub fn render_render(lib: &Library, input: &str, output: &str, cuts: CutList, quality: c_int, progress: Callback) {
   let render: RenderFunc = unsafe { lib.get(b"render").unwrap() };
-  let input = CString::new(process).unwrap();
+  let input = CString::new(input).unwrap();
   let output = CString::new(output).unwrap();
-  unsafe { render(input.as_ptr(), output.as_ptr(), cuts, reencode, progress) };
+  unsafe { render(input.as_ptr(), output.as_ptr(), cuts, quality, progress) };
 }
 
 pub fn load_generator() -> Library {

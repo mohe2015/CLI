@@ -27,7 +27,7 @@ use crate::module_manager::generator_generate;
 use crate::module_manager::render_render;
 
 use self::libloading::Library;
-use module_manager::{load_render, load_generator, module_version, render_prepare};
+use module_manager::{load_render, load_generator, module_version};
 use printer::{greetings, print_non_mp4_warning};
 
 use std::ffi::c_char;
@@ -122,10 +122,9 @@ fn run(options: &Options, generator: &Library, render: &Library) -> GeneratorSta
     return gen.stats;
   }
 
-  let process = render_prepare(render, options.input.as_str(), progress_callback);
   let gen = generator_generate(generator, options.input.as_str(), options.aggressiveness.into(), options.invert, progress_callback);
   
-  render_render(render, process, options.output.as_str(), gen.cuts, options.quality.into(), progress_callback);
+  render_render(render, options.input.as_str(), options.output.as_str(), gen.cuts, options.quality.into(), progress_callback);
 
   if let Ok(mut locked_prog) = PROG_WRAPPER.lock() {
     for (_, pb) in locked_prog.pbars.iter() {
