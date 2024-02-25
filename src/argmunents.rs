@@ -1,76 +1,134 @@
-extern crate argparse;
 extern crate tree_magic;
 
 use std::path::Path;
 
-use self::argparse::StoreTrue;
+use clap::{Arg, ArgAction, Command};
 
-use self::argparse::{ArgumentParser, Store};
-
-use crate::{printer::{raise_error, print_dir_not_empty_warning, print_reencode_missing_check_warning}, helper::get_automatic_path};
+use crate::module_manager::{ArgumentList, CArgumentResult};
+use crate::{printer::{raise_error, print_dir_not_empty_warning}, helper::get_automatic_path};
 
 #[derive(Clone)]
 pub struct Options {
   pub input: String,
   pub output: String,
-  pub quality: u8,
-  pub aggressiveness: u8,
-  pub reencode: String,
-  pub invert: bool,
   pub tsonly: bool,
+  pub generator_args: Vec<CArgumentResult>,
+  pub render_args: Vec<CArgumentResult>,
 }
 
-pub fn parse_args() -> Options {
+pub fn parse_args(generator_args: ArgumentList, render_args: ArgumentList) -> Options {
   let mut options: Options = Options {
     input: String::new(),
     output: String::new(),
-    quality: 20,
-    aggressiveness: 1,
-    reencode: String::new(),
-    invert: false,
     tsonly: false,
+    generator_args: Vec::new(),
+    render_args: Vec::new(),
   };
-  {
-    let mut ap = ArgumentParser::new();
-    ap.set_description("LectureCut is a tool to remove silence from videos.
 
-It uses WebRTC's VAD to detect silence and ffmpeg to transcode the video.
-To speed up transcoding, a form of smart encoding is employed. This means
-that the video is split into segments and only the segments that need to be
-cut are transcoded. This results in a much faster transcoding process, but
-the output video will have a slightly lower quality than the input video.");
-    
-    ap.refer(&mut options.input)
-        .add_option(&["-i", "--input"], Store,
-        "The video file to process")
-        .required();
-    ap.refer(&mut options.output)
-        .add_option(&["-o", "--output"], Store,
-        "The output file. If not specified, LectureCut will automatically generate a name.");
-    ap.refer(&mut options.quality)
-        .add_option(&["-q", "--quality"], Store,
-        "The quality of the parts of the video that need to be transcoded. Lower is better. Default: 20");
-    ap.refer(&mut options.aggressiveness)
-        .add_option(&["-a", "--aggressiveness"], Store,
-        "The aggressiveness of the VAD. Higher is more aggressive. Default: 3");
-    ap.refer(&mut options.reencode)
-        .add_option(&["-r", "--reencode"], Store,
-        "Reencode the video with a given video codec.");
-    ap.refer(&mut options.invert)
-        .add_option(&["--invert"], StoreTrue,
-        "Invert the VAD. This will cut out all segments that are not silence.");  
-    ap.refer(&mut options.tsonly)
-        .add_option(&["--tsonly"], StoreTrue,
-        "Only output the timestamps of the cuts. This is useful for debugging purposes or if you want to use the cuts in another program.");
-      
-    ap.parse_args_or_exit();
+  {
+    // ensure that generator and render arguments are not overlapping
+    let mut longs = Vec::new();
+    let mut shorts = Vec::new();
+    for arg in &generator_args {
+      if longs.contains(&arg.long) || shorts.contains(&arg.short) {
+        raise_error("Argument names are overlapping.");
+      }
+      longs.push(arg.long.clone());
+      shorts.push(arg.short);
+    }
+    for arg in &render_args {
+      if longs.contains(&arg.long) || shorts.contains(&arg.short) {
+        raise_error("Argument names are overlapping.");
+      }
+      longs.push(arg.long.clone());
+      shorts.push(arg.short);
+    }
+  }
+
+  let mut command = Command::new("lecturecut")
+    .about("LectureCut is a tool to remove silence from videos.
+
+    It uses WebRTC's VAD to detect silence and ffmpeg to transcode the video.
+    To speed up transcoding, a form of smart encoding is employed. This means
+    that the video is split into segments and only the segments that need to be
+    cut are transcoded. This results in a much faster transcoding process, but
+    the output video will have a slightly lower quality than the input video.")
+    .arg(Arg::new("input").short('i').long("input").help("The video file to process").required(true))
+    .arg(Arg::new("output").short('o').long("output").help("The output file. If not specified, LectureCut will automatically generate a name."))
+    .arg(Arg::new("tsonly").long("tsonly").help("Only output the timestamps of the cuts. This is useful for debugging purposes or if you want to use the cuts in another program.").action(ArgAction::SetTrue));
+
+  command = command.next_help_heading("Generator Arguments");
+  for arg in &generator_args {
+    let mut arrg = Arg::new(arg.long.clone()).long(arg.long.clone()).help(arg.description.clone()).required(arg.required);
+    if arg.short != '\0' {
+      arrg = arrg.short(arg.short);
+    }
+    if arg.is_flag {
+      arrg = arrg.action(ArgAction::SetTrue);
+    }
+    command = command.arg(arrg);
+  }
+
+  command = command.next_help_heading("Render Arguments");
+  for arg in &render_args {
+    let mut arrg = Arg::new(arg.long.clone()).long(arg.long.clone()).help(arg.description.clone()).required(arg.required);
+    if arg.short != '\0' {
+      arrg = arrg.short(arg.short);
+    }
+    if arg.is_flag {
+      arrg = arrg.action(ArgAction::SetTrue);
+    }
+    command = command.arg(arrg);
+  }
+
+  // parse arguments
+  let matches = command.get_matches();
+
+  // unpack arguments
+  options.input = matches.get_one::<String>("input").unwrap().to_string();
+  if let Some(output) = matches.get_one::<String>("output") {
+    options.output = output.to_string();
+  }
+  options.tsonly = matches.get_flag("tsonly");
+
+  // unpack generator arguments
+  for arg in &generator_args {
+    match arg.is_flag {
+      true => {
+        if matches.get_flag(&arg.long) {
+          options.generator_args.push(CArgumentResult {
+            long: arg.long.clone(),
+            value: "true".to_string(),
+          });
+        }
+      },
+      false => {
+        if let Some(value) = matches.get_one::<String>(&arg.long) {
+          options.generator_args.push(CArgumentResult {
+            long: arg.long.clone(),
+            value: value.to_string(),
+          });
+        }
+      }
+    }
+  }
+
+  // unpack render arguments
+  for arg in &render_args {
+    if let Some(value) = matches.get_one::<String>(&arg.long) {
+      options.render_args.push(CArgumentResult {
+        long: arg.long.clone(),
+        value: value.to_string(),
+      });
+    }
   }
 
   // because windows is seemingly designed by a 5 year old
   // we need to replace trailing double quotes with a backslash
   // ( see https://bugs.python.org/msg364246 )
-  if cfg!(windows) && options.input.ends_with('\"') {
-    options.input = options.input.replace('\"', "\\");
+  if cfg!(windows) {
+    options.input = options.input.replace('\"', "\\\"");
+    options.output = options.output.replace('\"', "\\\"");
   }
 
   options
@@ -90,7 +148,7 @@ pub fn validate_args(options: Options) -> Options {
     raise_error("Input file or directory does not exist.");
   }
   if !input_is_file && !input_path.is_dir() {
-    panic!("Input needs to be a file or a directory.");
+    raise_error("Input needs to be a file or a directory.");
   }
   // check filetype using magicbytes if file
   if input_is_file {
@@ -155,22 +213,10 @@ pub fn validate_args(options: Options) -> Options {
     }
   }
   else if !input_is_dir {
-    changed_options.output = get_automatic_path(options.input.as_str(), options.invert, options.tsonly);
+    changed_options.output = get_automatic_path(options.input.as_str(), options.tsonly);
     if Path::new(changed_options.output.as_str()).exists() {
       raise_error("Output file already exists.")
     }
-  }
-
-  if options.quality > 51 {
-    raise_error("Quality must be between 0 and 51.");
-  }
-
-  if options.aggressiveness > 3 {
-    raise_error("Aggressiveness must be between 0 and 3.");
-  }
-
-  if options.reencode.is_empty() {
-    print_reencode_missing_check_warning()
   }
 
   changed_options

@@ -65,7 +65,7 @@ pub fn greetings(render_version: &str, generator_version: &str) {
   }
   
   // manually center l7, because console does not support links...
-  let padding = term.size().1 - 86;
+  let padding = term.size().1 - 85;
   let l7_padded = " ".repeat((padding / 2).into()) + &l7;
   if let Err(e) = term.write_line(&l7_padded) {
     println!("Error: {}", e);
@@ -104,22 +104,15 @@ pub fn print_dir_not_empty_warning() {
     }
 }
 
-pub fn print_reencode_missing_check_warning() {
-    let term = Term::stderr();
-    if let Err(e) = term.write_line(&format!("{}: {}", style("⚠️").yellow(), "No reencode argument was provided. This may result in unpredictable behavior.\n")) {
-      println!("Error: {}", e);
-    }
-}
-
 pub fn print_stats(files: Vec<(String, String, GeneratorStats)>, time_used: Duration) {
-  let mut builder = Builder::default();
-
-  builder.set_header([
-    "Input File",
-    "Size Changes",
-    "Duration Changes",
-    "Duration %",
-  ]);
+  let mut builder = Builder::from(
+    vec![vec![
+      String::from("Input File"),
+      String::from("Size Changes"),
+      String::from("Duration Changes"),
+      String::from("Duration %"),
+    ]]
+  );
 
   let mut total_input_length = 0.0;
   let mut total_input_size = 0.0;

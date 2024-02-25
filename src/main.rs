@@ -1,6 +1,7 @@
 extern crate libloading;
 extern crate console;
 extern crate indicatif;
+extern crate clap;
 
 mod argmunents;
 mod printer;
@@ -101,7 +102,7 @@ fn run(options: &Options, generator: &Library, render: &Library) -> GeneratorSta
   }
 
   if options.tsonly {
-    let gen = generator_generate(generator, options.input.as_str(), options.aggressiveness.into(), options.invert, progress_callback);
+    let gen = generator_generate(generator, options.input.as_str(), options.generator_args.clone().into(), progress_callback);
     let file = File::create(options.output.as_str());
     if let Ok(mut file) = file {
       for i in 0..gen.cuts.length {
@@ -122,9 +123,9 @@ fn run(options: &Options, generator: &Library, render: &Library) -> GeneratorSta
     return gen.stats;
   }
 
-  let gen = generator_generate(generator, options.input.as_str(), options.aggressiveness.into(), options.invert, progress_callback);
+  let gen = generator_generate(generator, options.input.as_str(), options.generator_args.clone().into(), progress_callback);
   
-  render_render(render, options.input.as_str(), options.output.as_str(), gen.cuts, options.quality.into(), progress_callback);
+  render_render(render, options.input.as_str(), options.output.as_str(), gen.cuts, options.render_args.clone().into(), progress_callback);
 
   if let Ok(mut locked_prog) = PROG_WRAPPER.lock() {
     for (_, pb) in locked_prog.pbars.iter() {
@@ -145,8 +146,6 @@ fn process_files_in_dir(options: Options, generator: Library, render: Library) {
     let files: Vec<_> = files.filter_map(|f| if let Ok(f) = f {Some(f.path())} else {None}).collect();
     let files: Vec<_> = files.into_iter().filter(|f| f.is_file()).collect();
     let files: Vec<_> = files.into_iter().filter(|f| tree_magic::from_filepath(f).starts_with("video")).collect();
-    
-    let reencode = options.reencode.as_str();
 
     for file in files {
       if let Some(file_path) = file.to_str() {
@@ -167,18 +166,14 @@ fn process_files_in_dir(options: Options, generator: Library, render: Library) {
             filename
           } else {
             panic!("Failed to get filename");
-          }, options.invert, options.tsonly);
+          }, options.tsonly);
           tmp
         };
 
         let options = Options {
           input: file_path.to_string(),
           output: output_path.to_string(),
-          aggressiveness: options.aggressiveness,
-          quality: options.quality,
-          invert: options.invert,
-          reencode: reencode.to_string(),
-          tsonly: options.tsonly,
+          ..options.clone()
         };
 
         run(&options, &generator, &render);
@@ -212,7 +207,10 @@ fn main() {
 
   greetings(render_version.as_str(), generator_version.as_str());
 
-  let mut options = parse_args();
+  let generator_args = module_manager::module_get_arguments(&generator);
+  let render_args = module_manager::module_get_arguments(&render);
+
+  let mut options = parse_args(generator_args, render_args);
   options = validate_args(options);
 
   if Path::new(options.input.as_str()).is_dir() {
