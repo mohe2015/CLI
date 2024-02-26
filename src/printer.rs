@@ -6,10 +6,13 @@ use std::path;
 use std::path::Path;
 use std::time::Duration;
 
+use self::tabled::settings::object::Cell;
+
+use self::tabled::settings::themes::Colorization;
+use self::tabled::settings::Color;
+
 use self::tabled::settings::Style;
 use self::tabled::settings::Alignment;
-
-use self::tabled::settings::format::Format;
 
 use self::tabled::settings::Modify;
 
@@ -177,22 +180,22 @@ pub fn print_stats(files: Vec<(String, String, GeneratorStats)>, time_used: Dura
   let mut table = binding
     .with(Style::rounded())
     .with(Modify::new(Rows::single(0))
-        .with(Alignment::center())
-        .with(Format::content(|s| style(s).bold().to_string())))
+        .with(Alignment::center()))
     .with(Modify::new(Rows::new(1..).not(Columns::first()))
         .with(Alignment::right()))
-    .with(Modify::new(Columns::single(0))
-        .with(Format::content(|s| style(s).yellow().to_string())))
-    .with(Modify::new(Columns::single(1))
-        .with(Format::content(|s| style(s).fg(console::Color::Color256(96)).to_string())))
-    .with(Modify::new(Columns::single(2))
-        .with(Format::content(|s| style(s).cyan().to_string())))
-    .with(Modify::new(Columns::single(3))
-        .with(Format::content(|s| style(s).magenta().to_string())));
+
+    .with(Colorization::exact([Color::new("\x1b[1m", "\x1b[0m") | Color::FG_BRIGHT_YELLOW], Cell::new(0, 0)))
+    .with(Colorization::exact([Color::new("\x1b[1m", "\x1b[0m") | Color::new("\x1b[38;5;104m", "\x1b[0m")], Cell::new(0, 1)))
+    .with(Colorization::exact([Color::new("\x1b[1m", "\x1b[0m") | Color::FG_BRIGHT_CYAN], Cell::new(0, 2)))
+    .with(Colorization::exact([Color::new("\x1b[1m", "\x1b[0m") | Color::FG_BRIGHT_MAGENTA], Cell::new(0, 3)))
+
+    .with(Colorization::exact([Color::FG_YELLOW], Columns::single(0)))
+    .with(Colorization::exact([Color::new("\x1b[38;5;96m", "\x1b[0m")], Columns::single(1)))
+    .with(Colorization::exact([Color::FG_CYAN], Columns::single(2)))
+    .with(Colorization::exact([Color::FG_MAGENTA], Columns::single(3)));
     
   if files.len() > 1 {
-    table = table.with(Modify::new((files.len() + 1, 0))
-        .with(Format::content(|s| style(s).italic().white().to_string())))
+    table = table.with(Colorization::exact([Color::new("\x1b[3m", "\x1b[0m") | Color::FG_WHITE], Cell::new(files.len() + 1, 0)));
   }
 
   let table = table.to_string();
