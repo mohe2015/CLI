@@ -4,10 +4,10 @@ version = "0.1.0"
 
 [dependencies]
 console = "0.15.8"
-indicatif = "0.17.3"
-libloading = "0.8.0"
+indicatif = "0.17.8"
+libloading = "0.8.1"
 tree_magic = "0.2.3"
-once_cell = "1.17.1"
+once_cell = "1.19.0"
 ellipse = "0.2.0"
 clap = { version = "4.5.1", features = ["color", "help", "usage", "error-context", "suggestions", "wrap_help", "string"] }
 tabled = "0.15.0"
