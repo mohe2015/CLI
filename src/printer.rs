@@ -78,30 +78,29 @@ pub fn greetings(render_version: &str, generator_version: &str) {
 
 
 pub fn raise_error(message: &str) {
-    let term = Term::stderr();
-    if let Err(e) = term.write_line(&format!("{}: {}", style("Error").red(), message)) {
-      println!("Error: {}", e);
-    }
+  let term = Term::stderr();
+  if let Err(e) = term.write_line(&format!("{}: {}", style("Error").red(), message)) {
+    println!("Error: {}", e);
+  }
 
-    if let Err(e) = term.write_line("") {
-      println!("Error: {}", e);
-    }
-    std::process::exit(1);
+  if let Err(e) = term.write_line("") {
+    println!("Error: {}", e);
+  }
+  std::process::exit(1);
 }
 
 pub fn print_non_mp4_warning() {
-    let term = Term::stderr();
-    if let Err(e) = term.write_line(&format!("{}: {}", style("⚠️").yellow(), "The input file is not an MP4 file. This may cause issues.")) {
-      println!("Error: {}", e);
-    }
-
+  let term = Term::stderr();
+  if let Err(e) = term.write_line(&format!("{}: {}", style("⚠️").yellow(), "The input file is not an MP4 file. This may cause issues.")) {
+    println!("Error: {}", e);
+  }
 }
 
 pub fn print_dir_not_empty_warning() {
-    let term = Term::stderr();
-    if let Err(e) = term.write_line(&format!("{}: {}", style("⚠️").yellow(), "The output directory is not empty. Existing files will be skipped.\n")) {
-      println!("Error: {}", e);
-    }
+  let term = Term::stderr();
+  if let Err(e) = term.write_line(&format!("{}: {}", style("⚠️").yellow(), "The output directory is not empty. Existing files will be skipped.\n")) {
+    println!("Error: {}", e);
+  }
 }
 
 pub fn print_stats(files: Vec<(String, String, GeneratorStats)>, time_used: Duration) {

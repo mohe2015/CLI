@@ -131,12 +131,18 @@ impl From<Vec<ArgumentResult>> for CArgumentResultList {
   }
 }
 
-type Callback = unsafe extern fn(*const c_char, c_double) -> ();
+type ErrorCallback = unsafe extern fn(*const c_char) -> ();
+type ProgressCallback = unsafe extern fn(*const c_char, c_double) -> ();
 
-type InitFunc<'a> = Symbol<'a, unsafe extern fn() -> ()>;
-type VersionFunc<'a> = Symbol<'a, unsafe extern fn() -> *const c_char>;
-type RenderFunc<'a> = Symbol<'a, unsafe extern fn(*const c_char, *const c_char, CutList, CArgumentResultList, Callback) -> c_void>;
-type GenerateFunc<'a> = Symbol<'a, unsafe extern fn(*const c_char, CArgumentResultList, Callback) -> GeneratorResult>;
+type InitFunc<'a> = Symbol<'a, unsafe extern fn(ErrorCallback) -> ()>;
+type VersionFunc<'a> = Symbol<'a, unsafe extern fn(ErrorCallback) -> *const c_char>;
+type GetArgumentsFunc<'a> = Symbol<'a, unsafe extern fn(ErrorCallback) -> CArgumentList>;
+type RenderFunc<'a> = Symbol<'a, unsafe extern fn(*const c_char, *const c_char, CutList, CArgumentResultList, ProgressCallback, ErrorCallback) -> c_void>;
+type GenerateFunc<'a> = Symbol<'a, unsafe extern fn(*const c_char, CArgumentResultList, ProgressCallback, ErrorCallback) -> GeneratorResult>;
+
+unsafe extern fn module_error_callback(message: *const c_char) {
+  raise_error(&std::ffi::CStr::from_ptr(message).to_string_lossy());
+}
 
 pub fn load_render() -> Library {
   // load render so from modules/render.so (render.dll)
@@ -160,17 +166,17 @@ pub fn load_render() -> Library {
   let init: InitFunc = unsafe { lib.get(b"init").unwrap() };
   
   unsafe {
-    init();
+    init(module_error_callback);
   }
   
   lib
 }
 
-pub fn render_render(lib: &Library, input: &str, output: &str, cuts: CutList, args: CArgumentResultList, progress: Callback) {
+pub fn render_render(lib: &Library, input: &str, output: &str, cuts: CutList, args: CArgumentResultList, progress: ProgressCallback) {
   let render: RenderFunc = unsafe { lib.get(b"render").unwrap() };
   let input = CString::new(input).unwrap();
   let output = CString::new(output).unwrap();
-  unsafe { render(input.as_ptr(), output.as_ptr(), cuts, args, progress) };
+  unsafe { render(input.as_ptr(), output.as_ptr(), cuts, args, progress, module_error_callback) };
 }
 
 pub fn load_generator() -> Library {
@@ -196,26 +202,26 @@ pub fn load_generator() -> Library {
   let init: InitFunc = unsafe { lib.get(b"init").unwrap() };
 
   unsafe {
-    init();
+    init(module_error_callback);
   }
 
   lib
 }
 
-pub fn generator_generate(lib: &Library, input: &str, args: CArgumentResultList, progress: Callback) -> GeneratorResult {
+pub fn generator_generate(lib: &Library, input: &str, args: CArgumentResultList, progress: ProgressCallback) -> GeneratorResult {
   let generate: GenerateFunc = unsafe { lib.get(b"generate").unwrap() };
   let input = CString::new(input).unwrap();
-  unsafe { generate(input.as_ptr(), args, progress) }
+  unsafe { generate(input.as_ptr(), args, progress, module_error_callback) }
 }
 
 pub fn module_version(lib: &Library) -> String {
   let version: VersionFunc = unsafe { lib.get(b"version").unwrap() };
-  let version = unsafe { version() };
+  let version = unsafe { version(module_error_callback) };
   let version = unsafe { CStr::from_ptr(version) };
   version.to_str().unwrap().to_string()
 }
 
 pub fn module_get_arguments(lib: &Library) -> ArgumentList {
-  let get_arguments: Symbol<unsafe extern fn() -> CArgumentList> = unsafe { lib.get(b"get_arguments").unwrap() };
-  unsafe { get_arguments().into() }
+  let get_arguments: GetArgumentsFunc = unsafe { lib.get(b"get_arguments").unwrap() };
+  unsafe { get_arguments(module_error_callback).into() }
 }
