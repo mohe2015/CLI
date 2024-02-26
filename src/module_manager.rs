@@ -90,11 +90,16 @@ impl From<CArgumentList> for ArgumentList<'static> {
   }
 }
 
-#[repr(C)]
 #[derive(Clone)]
-pub struct CArgumentResult {
+pub struct ArgumentResult {
   pub long: String,
   pub value: String,
+}
+
+#[repr(C)]
+pub struct CArgumentResult {
+  pub long: *const c_char,
+  pub value: *const c_char,
 }
 
 #[repr(C)]
@@ -103,15 +108,26 @@ pub struct CArgumentResultList {
   pub results: *const CArgumentResult,
 }
 
-impl From<Vec<CArgumentResult>> for CArgumentResultList {
-  fn from(c_arg_res_list: Vec<CArgumentResult>) -> CArgumentResultList {
-    let length = c_arg_res_list.len() as c_long;
-    let results = c_arg_res_list.as_ptr();
-    std::mem::forget(c_arg_res_list);
-    CArgumentResultList {
+impl From<Vec<ArgumentResult>> for CArgumentResultList {
+  fn from(arg_res_list: Vec<ArgumentResult>) -> CArgumentResultList {
+    let length = arg_res_list.len() as c_long;
+    let results: Vec<CArgumentResult> = arg_res_list.iter().map(|arg_res| {
+      let long = CString::new(arg_res.long.as_str()).unwrap();
+      let value = CString::new(arg_res.value.as_str()).unwrap();
+      let result = CArgumentResult {
+        long: long.as_ptr(),
+        value: value.as_ptr(),
+      };
+      std::mem::forget(long);
+      std::mem::forget(value);
+      result
+    }).collect();
+    let result = CArgumentResultList {
       length,
-      results,
-    }
+      results: results.as_ptr(),
+    };
+    std::mem::forget(results);
+    result
   }
 }
 

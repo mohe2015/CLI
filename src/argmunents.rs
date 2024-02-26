@@ -4,7 +4,7 @@ use std::path::Path;
 
 use clap::{Arg, ArgAction, Command};
 
-use crate::module_manager::{ArgumentList, CArgumentResult};
+use crate::module_manager::{ArgumentList, ArgumentResult};
 use crate::{printer::{raise_error, print_dir_not_empty_warning}, helper::get_automatic_path};
 
 #[derive(Clone)]
@@ -12,8 +12,8 @@ pub struct Options {
   pub input: String,
   pub output: String,
   pub tsonly: bool,
-  pub generator_args: Vec<CArgumentResult>,
-  pub render_args: Vec<CArgumentResult>,
+  pub generator_args: Vec<ArgumentResult>,
+  pub render_args: Vec<ArgumentResult>,
 }
 
 pub fn parse_args(generator_args: ArgumentList, render_args: ArgumentList) -> Options {
@@ -96,7 +96,7 @@ pub fn parse_args(generator_args: ArgumentList, render_args: ArgumentList) -> Op
     match arg.is_flag {
       true => {
         if matches.get_flag(&arg.long) {
-          options.generator_args.push(CArgumentResult {
+          options.generator_args.push(ArgumentResult {
             long: arg.long.clone(),
             value: "true".to_string(),
           });
@@ -104,7 +104,7 @@ pub fn parse_args(generator_args: ArgumentList, render_args: ArgumentList) -> Op
       },
       false => {
         if let Some(value) = matches.get_one::<String>(&arg.long) {
-          options.generator_args.push(CArgumentResult {
+          options.generator_args.push(ArgumentResult {
             long: arg.long.clone(),
             value: value.to_string(),
           });
@@ -116,7 +116,7 @@ pub fn parse_args(generator_args: ArgumentList, render_args: ArgumentList) -> Op
   // unpack render arguments
   for arg in &render_args {
     if let Some(value) = matches.get_one::<String>(&arg.long) {
-      options.render_args.push(CArgumentResult {
+      options.render_args.push(ArgumentResult {
         long: arg.long.clone(),
         value: value.to_string(),
       });
