@@ -67,7 +67,7 @@ fn run(options: &Options, generator: &Library, render: &Library) -> GeneratorSta
     print_non_mp4_warning();
   }
 
-  unsafe extern fn progress_callback(name: *const c_char, advance: c_double) {
+  unsafe extern fn progress_callback(name: *const c_char, value: c_double) {
     // decode name
     if let Ok(name) = std::ffi::CStr::from_ptr(name).to_str() {
     // lock progress.mutex
@@ -75,11 +75,7 @@ fn run(options: &Options, generator: &Library, render: &Library) -> GeneratorSta
 
         // find progress bar
         if let Some(pb) = locked_prog.pbars.get(name) {
-          // get current progress
-          let current = pb.position() as f64;
-          // calculate new progress
-          let new = if advance == -1.0 {1000.0} else {current + (advance * 10.0)};
-          pb.set_position(new as u64);
+          pb.set_position((value * 1000.) as u64);
         }
         // if not found, create new progress bar
         else if let Some(prog) = locked_prog.progress.as_ref() {
@@ -90,7 +86,7 @@ fn run(options: &Options, generator: &Library, render: &Library) -> GeneratorSta
               .progress_chars("━╸━")
             );
           }
-          pb.set_position((advance * 10.0) as u64);
+          pb.set_position((value * 1000.0) as u64);
           let padded_name = format!("{: >16}", name);
           pb.set_message(padded_name);
           locked_prog.pbars.insert(name.to_string(), pb);
