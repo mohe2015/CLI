@@ -3,7 +3,7 @@ extern crate console;
 extern crate indicatif;
 extern crate clap;
 
-mod argmunents;
+mod arguments;
 mod printer;
 mod helper;
 mod module_manager;
